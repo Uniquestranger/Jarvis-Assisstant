@@ -4,9 +4,7 @@ import pyttsx3
 import Music_Library
 import requests
 # from openai import OpenAI
-# import pygame
 from gtts import gTTS
-import os
 
 # pip install pocketsphinx
 
