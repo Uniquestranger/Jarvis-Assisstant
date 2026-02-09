@@ -1,51 +1,68 @@
 import speech_recognition as sr
 import webbrowser
 import pyttsx3
-import Music_Library
 import requests
-# from openai import OpenAI
+from google import genai
 from gtts import gTTS
-
-# pip install pocketsphinx
-
-recognizer = sr.Recognizer()
-engine = pyttsx3.init() 
+import pygame
+import os
 
 
-def speak(text):
+def speak_old(text):
     engine.say(text)
     engine.runAndWait()
 
+def speak(text):
+    tts = gTTS(text)
+    tts.save('temp.mp3') 
 
+    # Initialize Pygame mixer
+    pygame.mixer.init()
 
-# def aiProcess(command):
-#     client = OpenAI(api_key="<Your Key Here>",
-#     )
+    # Load the MP3 file
+    pygame.mixer.music.load('temp.mp3')
 
-#     completion = client.chat.completions.create(
-#     model="gpt-3.5-turbo",
-#     messages=[
-#         {"role": "system", "content": "You are a virtual assistant named jarvis skilled in general tasks like Alexa and Google Cloud. Give short responses please"},
-#         {"role": "user", "content": command}
-#     ]
-#     )
+    # Play the MP3 file
+    pygame.mixer.music.play()
 
-#     return completion.choices[0].message.content
+    # Keep the program running until the music stops playing
+    while pygame.mixer.music.get_busy():
+        pygame.time.Clock().tick(10)
+    
+    pygame.mixer.music.unload()
+    os.remove("temp.mp3") 
+
+def aiProcess(command):
+    client = genai.Client(api_key="AIzaSyA2K1lJjPQNdEv9XfpJd3bHPoGJTgovKhg")
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=command,
+        config={
+            "system_instruction": "You are a virtual assistant named jarvis skilled in general tasks like Alexa and Google Cloud. Give short responses please"
+        }
+    )
+
+    return response.text
 
 def processCommand(c):
     if "open google" in c.lower():
         webbrowser.open("https://google.com")
-    elif "open AI Mode" in c.lower():
+    elif "open Ai Mode" in c.lower():
         webbrowser.open("https://www.google.com/search?q=&sxsrf=AE3TifO_--urXo1h1ySmUmWa4fMM0zW8Xw%3A1761411763567&aep=22&udm=50&oq=")
     elif "open youtube" in c.lower():
         webbrowser.open("https://youtube.com")
-    elif "open chatgpt" in c.lower():
-        webbrowser.open("https://chatgpt.com")
+    elif "open " in c.lower():
+        webbrowser.open("")
     elif c.lower().startswith("play"):
         song = c.lower().split(" ")[1]
         link = Music_Library.music[song]
         webbrowser.open(link)
 
+    else:
+        # Let OpenAI handle the request
+        output = aiProcess(c)
+        speak(output) 
 
 
 
@@ -53,27 +70,23 @@ def processCommand(c):
 
 if __name__ == "__main__":
     speak("Initializing Jarvis....")
+    r = sr.Recognizer() # Initialize once outside the loop
     while True:
-        # Listen for the wake word "Jarvis"
-        # obtain audio from the microphone
-        r = sr.Recognizer()
-         
-        print("recognizing...")
-        try:
-            with sr.Microphone() as source:
-                print("Listening...")
-                audio = r.listen(source, timeout=2, phrase_time_limit=1)
-            word = r.recognize_google(audio)
-            if(word.lower() == "jarvis"):
-                speak("Yes Sir?")
-                # Listen for command
+            try:
                 with sr.Microphone() as source:
-                    print("Jarvis Active...")
-                    audio = r.listen(source)
-                    command = r.recognize_google(audio)
-
-                    processCommand(command)
-
-
-        except Exception as e:
-            print("Error; {0}".format(e))
+                    r.adjust_for_ambient_noise(source) # Helps with accuracy
+                    print("Listening for wake word...")
+                    audio = r.listen(source, timeout=5, phrase_time_limit=3)
+                    word = r.recognize_google(audio)
+                    
+                    if word.lower() == "jarvis":
+                        speak("Yes Sir?")
+                        with sr.Microphone() as source:
+                            print("Jarvis Active...")
+                            audio = r.listen(source)
+                            command = r.recognize_google(audio)
+                            processCommand(command)
+            except sr.WaitTimeoutError:
+                pass # Just restart the loop if no speech is detected
+            except Exception as e:
+                print(f"Error: {e}")
